@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         WorldGuessr Cheat
+// @name         WorldGuessr Lat/Long, Address & Ping Display
 // @namespace    http://tampermonkey.net/
 // @version      1.0
-// @description  Extracts the coördinates from the iframe src and turns in into the location.
-// @author       Lostt
+// @description  Haalt de coördinaten uit de svEmbed-iframe, reverse-geocodeert deze naar adresgegevens en meet de ping, en toont dit in een menu.
+// @author
 // @match        *://www.worldguessr.com/*
 // @grant        GM_addStyle
 // ==/UserScript==
@@ -11,35 +11,19 @@
 (function() {
     'use strict';
 
-    // Globale variabelen voor de laatst bekende data
+    // Globale variabelen
     let latestCoords = {lat: "N/A", long: "N/A"};
-    let latestAddress = {road: "N/A", city: "N/A", state: "N/A", country: "N/A"};
+    let latestAddress = {road: "N/A", city: "N/A", country: "N/A"};
     let latestPing = "N/A";
 
-    // Haalt de coördinaten uit een URL (probeert eerst met URLSearchParams, anders regex)
-    function extractCoordinatesFromURL(urlStr) {
-        try {
-            const urlObj = new URL(urlStr);
-            const lat = urlObj.searchParams.get("lat");
-            const long = urlObj.searchParams.get("long");
-            if (lat && long) return {lat, long};
-        } catch(e) {
-            const latMatch = urlStr.match(/lat=([-.\d]+)/);
-            const longMatch = urlStr.match(/long=([-.\d]+)/);
-            if (latMatch && longMatch) {
-                return {lat: latMatch[1], long: longMatch[1]};
-            }
-        }
-        return null;
-    }
-
-    // Maakt een reverse geocoding-call via Nominatim om adresgegevens (inclusief staat) op te halen en meet de ping (round-trip tijd)
+    // Reverse geocode via Nominatim om adresgegevens op te halen
     function reverseGeocode(lat, long) {
         const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${long}`;
         const startTime = performance.now();
+        // Let op: Gebruik een geldige User-Agent/referer indien nodig (Nominatim heeft regels)
         fetch(url, {
             headers: {
-                "User-Agent": "Mozilla/5.0 (compatible; WorldGuessrAutoScript/1.0; +https://example.com/)"
+                "User-Agent": "Mozilla/5.0 (compatible; YourAppName/1.0; +https://example.com/)"
             }
         })
         .then(response => response.json())
@@ -48,11 +32,10 @@
                 latestAddress = {
                     road: data.address.road || data.address.neighbourhood || "N/A",
                     city: data.address.city || data.address.town || data.address.village || "N/A",
-                    state: data.address.state || "N/A",
                     country: data.address.country || "N/A"
                 };
             } else {
-                latestAddress = {road: "N/A", city: "N/A", state: "N/A", country: "N/A"};
+                latestAddress = {road: "N/A", city: "N/A", country: "N/A"};
             }
             const endTime = performance.now();
             latestPing = Math.round(endTime - startTime) + " ms";
@@ -60,26 +43,44 @@
         })
         .catch(err => {
             console.error("Reverse geocoding error:", err);
-            latestAddress = {road: "N/A", city: "N/A", state: "N/A", country: "N/A"};
+            latestAddress = {road: "N/A", city: "N/A", country: "N/A"};
             latestPing = "Error";
             updateUI();
         });
     }
 
-    // Update alle UI-elementen in het menu
+    // Functie om de UI te updaten
     function updateUI() {
         document.getElementById("wg-lat").textContent = latestCoords.lat;
         document.getElementById("wg-long").textContent = latestCoords.long;
         document.getElementById("wg-address").innerHTML =
-            `<strong>Address:</strong><br>
-             Road: ${latestAddress.road}<br>
-             City: ${latestAddress.city}<br>
-             State: ${latestAddress.state}<br>
-             Country: ${latestAddress.country}`;
+            `<strong>Road:</strong> ${latestAddress.road}<br>
+             <strong>City:</strong> ${latestAddress.city}<br>
+             <strong>Country:</strong> ${latestAddress.country}`;
         document.getElementById("wg-ping").textContent = latestPing;
     }
 
-    // Maakt het menu; voorkomt dubbele creatie door te checken of er al een element met id "wg-menu" bestaat
+    // Functie om coördinaten uit een URL-string te extraheren
+    function extractCoordinatesFromURL(urlStr) {
+        try {
+            let urlObj = new URL(urlStr);
+            let lat = urlObj.searchParams.get("lat");
+            let long = urlObj.searchParams.get("long");
+            if(lat && long) {
+                return {lat, long};
+            }
+        } catch(e) {
+            // Fallback met regex
+            let latMatch = urlStr.match(/lat=([-.\d]+)/);
+            let longMatch = urlStr.match(/long=([-.\d]+)/);
+            if(latMatch && longMatch) {
+                return {lat: latMatch[1], long: longMatch[1]};
+            }
+        }
+        return null;
+    }
+
+    // Maak een zwevend menu met alle info en een refresh-knop
     function createMenu() {
         if (document.getElementById("wg-menu")) return;
         const menu = document.createElement("div");
@@ -138,20 +139,21 @@
         document.getElementById("wg-refresh").addEventListener("click", checkEmbedFrame);
     }
 
-    // Controleer of er een svEmbed-iframe aanwezig is en haal daar de coördinaten uit
+    // Controleer of er een embed-iframe is met de juiste URL en update de coördinaten
     function checkEmbedFrame() {
         const embedFrame = document.querySelector('iframe[src*="svEmbed"]');
         if (embedFrame && embedFrame.src) {
             const coords = extractCoordinatesFromURL(embedFrame.src);
             if (coords) {
                 latestCoords = coords;
+                // Start de reverse geocoding-call met de nieuwe coördinaten
                 reverseGeocode(coords.lat, coords.long);
                 updateUI();
             }
         }
     }
 
-    // Start het script: maak het menu en start een interval dat elke seconde de embed-iframe controleert
+    // Start het script: maak het menu en check elk seconde of er nieuwe data is
     createMenu();
     setInterval(checkEmbedFrame, 1000);
 })();
