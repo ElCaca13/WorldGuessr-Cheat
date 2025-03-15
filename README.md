@@ -13,23 +13,23 @@ This powerful tool is designed to enhance your WorldGuessr gameplay by providing
 Follow these step-by-step instructions to get the WorldGuessr Cheat up and running with Tampermonkey:
 
 Install Tampermonkey:
-1. Open your browser and go to [the Tampermonkey extension](https://chromewebstore.google.com/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo).
-2. Download and install the Tampermonkey extension for your browser (Chrome, Firefox, Edge, etc.).
+- Open your browser and go to [the Tampermonkey extension](https://chromewebstore.google.com/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo).
+- Download and install the Tampermonkey extension for your browser (Chrome, Firefox, Edge, etc.).
 
 Paste the Script:
-5. Copy the script from the WorldGuessrCheat.js file in this repository.
-6. Open the extension by clicking the puzzle piece in the top left of your screen.
-7. Click dashboard
-8. Create a new script (by clicking the plus icon next to "Installed UserScripts")
-9. Paste the script
+- Copy the script from the WorldGuessrCheat.js file in this repository.
+- Open the extension by clicking the puzzle piece in the top left of your screen.
+- Click dashboard
+- Create a new script (by clicking the plus icon next to "Installed UserScripts")
+- Paste the script
 
 Save the Script:
-10. Click File > Save or press Ctrl + S to save the script.
-11. Ensure the script is enabled (toggle should be green).
+- Click File > Save or press Ctrl + S to save the script.
+- Ensure the script is enabled (toggle should be green).
 
 Access WorldGuessr:
-12. Open the WorldGuessr game in your browser.
-13. The cheat should now be active and ready to use.
+- Open the WorldGuessr game in your browser.
+- The cheat should now be active and ready to use.
 
 And you're all set and ready to beat your friends! (if you have friends)
 
