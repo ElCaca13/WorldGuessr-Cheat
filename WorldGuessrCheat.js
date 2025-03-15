@@ -78,7 +78,7 @@
         const menu = document.createElement("div");
         menu.id = "wg-menu";
         menu.innerHTML = `
-            <div id="wg-header">WorldGuessr Info</div>
+            <div id="wg-header">WorldGuessr Cheat</div>
             <div id="wg-coords">
                 <div><strong>Latitude:</strong> <span id="wg-lat">N/A</span></div>
                 <div><strong>Longitude:</strong> <span id="wg-long">N/A</span></div>
