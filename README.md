@@ -29,7 +29,8 @@ Save the Script:
 
 Access WorldGuessr:
 - Open the WorldGuessr game in your browser.
-- The cheat should now be active and ready to use.
+- You can use the backslash "\" key to toggle the menu.
+- You can use the "Open in Google Maps" button to open the location in google maps.
 
 And you're all set and ready to beat your friends! (if you have friends)
 
