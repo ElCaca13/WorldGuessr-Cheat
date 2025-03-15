@@ -11,10 +11,12 @@
 (function() {
     'use strict';
 
+    // Globale variabelen voor de laatst bekende data
     let latestCoords = {lat: "N/A", long: "N/A"};
     let latestAddress = {road: "N/A", city: "N/A", country: "N/A"};
     let latestPing = "N/A";
 
+    // Haalt de coördinaten uit een URL (probeert eerst met URLSearchParams, anders regex)
     function extractCoordinatesFromURL(urlStr) {
         try {
             const urlObj = new URL(urlStr);
@@ -31,6 +33,7 @@
         return null;
     }
 
+    // Maakt een reverse geocoding-call via Nominatim om adresgegevens op te halen en meet de ping (round-trip tijd)
     function reverseGeocode(lat, long) {
         const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${long}`;
         const startTime = performance.now();
@@ -62,6 +65,7 @@
         });
     }
 
+    // Update alle UI-elementen in het menu
     function updateUI() {
         document.getElementById("wg-lat").textContent = latestCoords.lat;
         document.getElementById("wg-long").textContent = latestCoords.long;
@@ -73,6 +77,7 @@
         document.getElementById("wg-ping").textContent = latestPing;
     }
 
+    // Maakt het menu; voorkomt dubbele creatie door te checken of er al een element met id "wg-menu" bestaat
     function createMenu() {
         if (document.getElementById("wg-menu")) return;
         const menu = document.createElement("div");
@@ -89,6 +94,7 @@
             <div id="wg-ping-container">
                 <strong>Ping:</strong> <span id="wg-ping">N/A</span>
             </div>
+            <button id="wg-refresh">🔄 Refresh</button>
         `;
         document.body.appendChild(menu);
 
@@ -133,6 +139,7 @@
         document.getElementById("wg-refresh").addEventListener("click", checkEmbedFrame);
     }
 
+    // Controleer of er een svEmbed-iframe aanwezig is en haal daar de coördinaten uit
     function checkEmbedFrame() {
         const embedFrame = document.querySelector('iframe[src*="svEmbed"]');
         if (embedFrame && embedFrame.src) {
@@ -145,6 +152,7 @@
         }
     }
 
+    // Start het script: maak het menu én start een interval dat elke seconde de embed-iframe controleert
     createMenu();
     setInterval(checkEmbedFrame, 1000);
 })();
