@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         WorldGuessr Lat/Long, Address & Ping Display
+// @name         WorldGuessr Cheat
 // @namespace    http://tampermonkey.net/
 // @version      1.0
-// @description  Haalt de coördinaten uit de svEmbed-iframe, reverse-geocodeert deze naar adresgegevens en meet de ping, en toont dit in een menu.
-// @author
+// @description  Grabs coördinates and transfers them into a location
+// @author       Lostt
 // @match        *://www.worldguessr.com/*
 // @grant        GM_addStyle
 // ==/UserScript==
