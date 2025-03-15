@@ -11,22 +11,22 @@
 (function() {
     'use strict';
 
-    let latestCoords = {lat: "N/A", long: "N/A"};
-    let latestAddress = {road: "N/A", city: "N/A", country: "N/A"};
+    let latestCoords = { lat: "N/A", long: "N/A" };
+    let latestAddress = { road: "N/A", city: "N/A", state: "N/A", country: "N/A" };
     let latestPing = "N/A";
+    let menuVisible = true;
+    let menu;
 
     function extractCoordinatesFromURL(urlStr) {
         try {
             const urlObj = new URL(urlStr);
             const lat = urlObj.searchParams.get("lat");
             const long = urlObj.searchParams.get("long");
-            if (lat && long) return {lat, long};
-        } catch(e) {
+            if (lat && long) return { lat, long };
+        } catch (e) {
             const latMatch = urlStr.match(/lat=([-.\d]+)/);
             const longMatch = urlStr.match(/long=([-.\d]+)/);
-            if (latMatch && longMatch) {
-                return {lat: latMatch[1], long: longMatch[1]};
-            }
+            if (latMatch && longMatch) return { lat: latMatch[1], long: longMatch[1] };
         }
         return null;
     }
@@ -34,118 +34,136 @@
     function reverseGeocode(lat, long) {
         const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${long}`;
         const startTime = performance.now();
-        fetch(url, {
-            headers: {
-                "User-Agent": "Mozilla/5.0 (compatible; WorldGuessrAutoScript/1.0; +https://example.com/)"
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data && data.address) {
-                latestAddress = {
-                    road: data.address.road || data.address.neighbourhood || "N/A",
-                    city: data.address.city || data.address.town || data.address.village || "N/A",
-                    country: data.address.country || "N/A"
-                };
-            } else {
-                latestAddress = {road: "N/A", city: "N/A", country: "N/A"};
-            }
-            const endTime = performance.now();
-            latestPing = Math.round(endTime - startTime) + " ms";
-            updateUI();
-        })
-        .catch(err => {
-            console.error("Reverse geocoding error:", err);
-            latestAddress = {road: "N/A", city: "N/A", country: "N/A"};
-            latestPing = "Error";
-            updateUI();
-        });
+        fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (WorldGuessrScript)" } })
+            .then(response => response.json())
+            .then(data => {
+                if (data && data.address) {
+                    latestAddress = {
+                        road: data.address.road || data.address.neighbourhood || "N/A",
+                        city: data.address.city || data.address.town || data.address.village || "N/A",
+                        state: data.address.state || "N/A",
+                        country: data.address.country || "N/A"
+                    };
+                } else {
+                    latestAddress = { road: "N/A", city: "N/A", state: "N/A", country: "N/A" };
+                }
+                latestPing = Math.round(performance.now() - startTime) + " ms";
+                updateUI();
+            })
+            .catch(() => {
+                latestAddress = { road: "N/A", city: "N/A", state: "N/A", country: "N/A" };
+                latestPing = "Error";
+                updateUI();
+            });
     }
 
     function updateUI() {
-        document.getElementById("wg-lat").textContent = latestCoords.lat;
-        document.getElementById("wg-long").textContent = latestCoords.long;
-        document.getElementById("wg-address").innerHTML =
-            `<strong>Address:</strong><br>
-             Road: ${latestAddress.road}<br>
-             City: ${latestAddress.city}<br>
-             Country: ${latestAddress.country}`;
-        document.getElementById("wg-ping").textContent = latestPing;
+        if (!menu) return;
+
+        const mapsUrl = `https://www.google.com/maps?q=${latestCoords.lat},${latestCoords.long}&z=6`;
+
+        menu.innerHTML = `
+            <div id="wg-header">WorldGuessr Cheat</div>
+            <div class="wg-section">
+                <div class="wg-item"><strong>Latitude:</strong> ${latestCoords.lat}</div>
+                <div class="wg-item"><strong>Longitude:</strong> ${latestCoords.long}</div>
+            </div>
+            <div class="wg-section">
+                <div class="wg-item"><strong>Road:</strong> ${latestAddress.road}</div>
+                <div class="wg-item"><strong>City:</strong> ${latestAddress.city}</div>
+                <div class="wg-item"><strong>State:</strong> ${latestAddress.state}</div>
+                <div class="wg-item"><strong>Country:</strong> ${latestAddress.country}</div>
+            </div>
+            <div class="wg-section">
+                <div class="wg-item"><strong>Ping:</strong> ${latestPing}</div>
+            </div>
+            <div class="wg-section">
+                <a id="wg-maps-button" href="${mapsUrl}" target="_blank">
+                    Open in Google Maps
+                </a>
+            </div>
+        `;
     }
 
     function createMenu() {
-        if (document.getElementById("wg-menu")) return;
-        const menu = document.createElement("div");
+        const oldMenu = document.getElementById("wg-menu");
+        if (oldMenu) oldMenu.remove();
+
+        menu = document.createElement("div");
         menu.id = "wg-menu";
-        menu.innerHTML = `
-            <div id="wg-header">WorldGuessr Cheat</div>
-            <div id="wg-coords">
-                <div><strong>Latitude:</strong> <span id="wg-lat">N/A</span></div>
-                <div><strong>Longitude:</strong> <span id="wg-long">N/A</span></div>
-            </div>
-            <div id="wg-address">
-                <strong>Address:</strong><br> N/A
-            </div>
-            <div id="wg-ping-container">
-                <strong>Ping:</strong> <span id="wg-ping">N/A</span>
-            </div>
-            <button id="wg-refresh">🔄 Refresh</button>
-        `;
         document.body.appendChild(menu);
-
-        GM_addStyle(`
-            #wg-menu {
-                position: fixed;
-                top: 10px;
-                left: 10px;
-                background: rgba(0, 0, 0, 0.8);
-                color: #fff;
-                padding: 10px;
-                border-radius: 8px;
-                z-index: 9999;
-                font-family: sans-serif;
-                font-size: 14px;
-                box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-            }
-            #wg-header {
-                font-size: 16px;
-                font-weight: bold;
-                margin-bottom: 5px;
-            }
-            #wg-refresh {
-                margin-top: 10px;
-                padding: 5px;
-                background: #28a745;
-                border: none;
-                color: #fff;
-                border-radius: 5px;
-                cursor: pointer;
-                width: 100%;
-                font-size: 14px;
-            }
-            #wg-refresh:hover {
-                background: #218838;
-            }
-            #wg-coords, #wg-address, #wg-ping-container {
-                margin-bottom: 5px;
-            }
-        `);
-
-        document.getElementById("wg-refresh").addEventListener("click", checkEmbedFrame);
+        updateUI();
     }
 
-    function checkEmbedFrame() {
-        const embedFrame = document.querySelector('iframe[src*="svEmbed"]');
-        if (embedFrame && embedFrame.src) {
-            const coords = extractCoordinatesFromURL(embedFrame.src);
-            if (coords) {
-                latestCoords = coords;
-                reverseGeocode(coords.lat, coords.long);
-                updateUI();
-            }
+    function toggleMenu() {
+        menuVisible = !menuVisible;
+        menu.style.display = menuVisible ? "block" : "none";
+    }
+
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "\\") toggleMenu();
+    });
+
+    GM_addStyle(`
+        #wg-menu {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(20, 20, 20, 0.95);
+            color: white;
+            font-family: Arial, sans-serif;
+            padding: 15px;
+            border: 2px solid red;
+            border-radius: 8px;
+            box-shadow: 0px 0px 10px red;
+            z-index: 9999;
+            min-width: 250px;
         }
-    }
+        #wg-header {
+            color: red;
+            font-size: 20px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 10px;
+            text-shadow: 0px 0px 8px red;
+        }
+        .wg-section {
+            margin-top: 10px;
+            padding: 5px;
+            border-top: 1px solid red;
+        }
+        .wg-item {
+            font-size: 14px;
+            margin: 2px 0;
+        }
+        #wg-maps-button {
+            display: block;
+            text-align: center;
+            background: red;
+            color: white;
+            padding: 8px;
+            border-radius: 5px;
+            font-weight: bold;
+            text-decoration: none;
+            margin-top: 10px;
+            transition: transform 0.2s ease-in-out, background 0.2s ease-in-out;
+        }
+        #wg-maps-button:hover {
+            background: darkred;
+            transform: scale(1.05);
+        }
+    `);
 
     createMenu();
-    setInterval(checkEmbedFrame, 1000);
+
+    setInterval(() => {
+        const iframe = document.querySelector("iframe");
+        if (iframe) {
+            const coords = extractCoordinatesFromURL(iframe.src);
+            if (coords && (coords.lat !== latestCoords.lat || coords.long !== latestCoords.long)) {
+                latestCoords = coords;
+                reverseGeocode(coords.lat, coords.long);
+            }
+        }
+    }, 1000);
 })();
