@@ -11,19 +11,32 @@
 (function() {
     'use strict';
 
-    // Globale variabelen
     let latestCoords = {lat: "N/A", long: "N/A"};
     let latestAddress = {road: "N/A", city: "N/A", country: "N/A"};
     let latestPing = "N/A";
 
-    // Reverse geocode via Nominatim om adresgegevens op te halen
+    function extractCoordinatesFromURL(urlStr) {
+        try {
+            const urlObj = new URL(urlStr);
+            const lat = urlObj.searchParams.get("lat");
+            const long = urlObj.searchParams.get("long");
+            if (lat && long) return {lat, long};
+        } catch(e) {
+            const latMatch = urlStr.match(/lat=([-.\d]+)/);
+            const longMatch = urlStr.match(/long=([-.\d]+)/);
+            if (latMatch && longMatch) {
+                return {lat: latMatch[1], long: longMatch[1]};
+            }
+        }
+        return null;
+    }
+
     function reverseGeocode(lat, long) {
         const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${long}`;
         const startTime = performance.now();
-        // Let op: Gebruik een geldige User-Agent/referer indien nodig (Nominatim heeft regels)
         fetch(url, {
             headers: {
-                "User-Agent": "Mozilla/5.0 (compatible; YourAppName/1.0; +https://example.com/)"
+                "User-Agent": "Mozilla/5.0 (compatible; WorldGuessrAutoScript/1.0; +https://example.com/)"
             }
         })
         .then(response => response.json())
@@ -49,38 +62,17 @@
         });
     }
 
-    // Functie om de UI te updaten
     function updateUI() {
         document.getElementById("wg-lat").textContent = latestCoords.lat;
         document.getElementById("wg-long").textContent = latestCoords.long;
         document.getElementById("wg-address").innerHTML =
-            `<strong>Road:</strong> ${latestAddress.road}<br>
-             <strong>City:</strong> ${latestAddress.city}<br>
-             <strong>Country:</strong> ${latestAddress.country}`;
+            `<strong>Address:</strong><br>
+             Road: ${latestAddress.road}<br>
+             City: ${latestAddress.city}<br>
+             Country: ${latestAddress.country}`;
         document.getElementById("wg-ping").textContent = latestPing;
     }
 
-    // Functie om coördinaten uit een URL-string te extraheren
-    function extractCoordinatesFromURL(urlStr) {
-        try {
-            let urlObj = new URL(urlStr);
-            let lat = urlObj.searchParams.get("lat");
-            let long = urlObj.searchParams.get("long");
-            if(lat && long) {
-                return {lat, long};
-            }
-        } catch(e) {
-            // Fallback met regex
-            let latMatch = urlStr.match(/lat=([-.\d]+)/);
-            let longMatch = urlStr.match(/long=([-.\d]+)/);
-            if(latMatch && longMatch) {
-                return {lat: latMatch[1], long: longMatch[1]};
-            }
-        }
-        return null;
-    }
-
-    // Maak een zwevend menu met alle info en een refresh-knop
     function createMenu() {
         if (document.getElementById("wg-menu")) return;
         const menu = document.createElement("div");
@@ -94,7 +86,9 @@
             <div id="wg-address">
                 <strong>Address:</strong><br> N/A
             </div>
-            <button id="wg-refresh">🔄 Refresh</button>
+            <div id="wg-ping-container">
+                <strong>Ping:</strong> <span id="wg-ping">N/A</span>
+            </div>
         `;
         document.body.appendChild(menu);
 
@@ -139,21 +133,18 @@
         document.getElementById("wg-refresh").addEventListener("click", checkEmbedFrame);
     }
 
-    // Controleer of er een embed-iframe is met de juiste URL en update de coördinaten
     function checkEmbedFrame() {
         const embedFrame = document.querySelector('iframe[src*="svEmbed"]');
         if (embedFrame && embedFrame.src) {
             const coords = extractCoordinatesFromURL(embedFrame.src);
             if (coords) {
                 latestCoords = coords;
-                // Start de reverse geocoding-call met de nieuwe coördinaten
                 reverseGeocode(coords.lat, coords.long);
                 updateUI();
             }
         }
     }
 
-    // Start het script: maak het menu en check elk seconde of er nieuwe data is
     createMenu();
     setInterval(checkEmbedFrame, 1000);
 })();
