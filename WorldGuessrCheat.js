@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         WorldGuessr Cheat
 // @namespace    http://tampermonkey.net/
-// @version      1.0
-// @description  Grabs coördinates and transfers them into a location
+// @version      1.1
+// @description  Grabs coordinates & converts them to location & Open in OpenStreetMap
 // @author       Lostt
 // @match        *://www.worldguessr.com/*
 // @grant        GM_addStyle
@@ -13,54 +13,94 @@
 
     let latestCoords = { lat: "N/A", long: "N/A" };
     let latestAddress = { road: "N/A", city: "N/A", state: "N/A", country: "N/A" };
-    let latestPing = "N/A";
     let menuVisible = true;
     let menu;
 
-    function extractCoordinatesFromURL(urlStr) {
-        try {
-            const urlObj = new URL(urlStr);
-            const lat = urlObj.searchParams.get("lat");
-            const long = urlObj.searchParams.get("long");
-            if (lat && long) return { lat, long };
-        } catch (e) {
-            const latMatch = urlStr.match(/lat=([-.\d]+)/);
-            const longMatch = urlStr.match(/long=([-.\d]+)/);
-            if (latMatch && longMatch) return { lat: latMatch[1], long: longMatch[1] };
+    function logCoordinates(lat, long) {
+        if (lat && long && (lat !== latestCoords.lat || long !== latestCoords.long)) {
+            latestCoords = { lat, long };
+            reverseGeocode(lat, long);
         }
-        return null;
     }
 
-    function reverseGeocode(lat, long) {
-        const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${long}`;
-        const startTime = performance.now();
-        fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (WorldGuessrScript)" } })
-            .then(response => response.json())
-            .then(data => {
-                if (data && data.address) {
-                    latestAddress = {
-                        road: data.address.road || data.address.neighbourhood || "N/A",
-                        city: data.address.city || data.address.town || data.address.village || "N/A",
-                        state: data.address.state || "N/A",
-                        country: data.address.country || "N/A"
-                    };
-                } else {
-                    latestAddress = { road: "N/A", city: "N/A", state: "N/A", country: "N/A" };
-                }
-                latestPing = Math.round(performance.now() - startTime) + " ms";
-                updateUI();
-            })
-            .catch(() => {
-                latestAddress = { road: "N/A", city: "N/A", state: "N/A", country: "N/A" };
-                latestPing = "Error";
-                updateUI();
-            });
+    // 1️⃣ Intercept fetch requests
+    const originalFetch = window.fetch;
+    window.fetch = async function(...args) {
+        const response = await originalFetch(...args);
+        const clone = response.clone();
+        clone.json().then(data => {
+            if (data?.lat && data?.lon) logCoordinates(data.lat, data.lon);
+        }).catch(() => {});
+        return response;
+    };
+
+    // 2️⃣ Intercept XMLHttpRequest
+    const originalOpen = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function(method, url) {
+        const urlParams = new URLSearchParams(url.split("?")[1]);
+        if (urlParams.has("lat") && urlParams.has("long")) {
+            logCoordinates(urlParams.get("lat"), urlParams.get("long"));
+        }
+        return originalOpen.apply(this, arguments);
+    };
+
+    // 3️⃣ Check iframe URLs (interval verlaagd naar 3 sec)
+    function checkIframes() {
+        document.querySelectorAll("iframe").forEach(iframe => {
+            const urlParams = new URLSearchParams(iframe.src.split("?")[1]);
+            if (urlParams.has("lat") && urlParams.has("long")) {
+                logCoordinates(urlParams.get("lat"), urlParams.get("long"));
+            }
+        });
+    }
+    setInterval(checkIframes, 3000);
+
+    async function reverseGeocode(lat, long) {
+        let url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${long}`;
+
+        try {
+            let response = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (WorldGuessrScript)" } });
+            if (!response.ok) throw new Error("OSM API failed");
+            let data = await response.json();
+
+            latestAddress = {
+                road: data.address?.road || "N/A",
+                city: data.address?.city || data.address?.town || "N/A",
+                state: data.address?.state || "N/A",
+                country: data.address?.country || "N/A"
+            };
+        } catch (e) {
+            console.warn("OSM failed, trying alternative API...");
+            await fetchBackupAPI(lat, long);
+        } finally {
+            updateUI();
+        }
+    }
+
+    async function fetchBackupAPI(lat, long) {
+        let url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${long}&localityLanguage=en`;
+
+        try {
+            let response = await fetch(url);
+            if (!response.ok) throw new Error("Backup API failed");
+            let data = await response.json();
+
+            latestAddress = {
+                road: data.principalSubdivision || "N/A",
+                city: data.city || "N/A",
+                state: data.locality || "N/A",
+                country: data.countryName || "N/A"
+            };
+        } catch (e) {
+            console.warn("Backup API also failed.");
+            latestAddress = { road: "N/A", city: "N/A", state: "N/A", country: "N/A" };
+        }
     }
 
     function updateUI() {
         if (!menu) return;
 
-        const mapsUrl = `https://www.google.com/maps?q=${latestCoords.lat},${latestCoords.long}&z=6`;
+        const mapsUrl = `https://www.openstreetmap.org/?mlat=${latestCoords.lat}&mlon=${latestCoords.long}&zoom=10`;
 
         menu.innerHTML = `
             <div id="wg-header">WorldGuessr Cheat</div>
@@ -75,11 +115,8 @@
                 <div class="wg-item"><strong>Country:</strong> ${latestAddress.country}</div>
             </div>
             <div class="wg-section">
-                <div class="wg-item"><strong>Ping:</strong> ${latestPing}</div>
-            </div>
-            <div class="wg-section">
                 <a id="wg-maps-button" href="${mapsUrl}" target="_blank">
-                    Open in Google Maps
+                    Open in Maps
                 </a>
             </div>
         `;
@@ -156,14 +193,4 @@
 
     createMenu();
 
-    setInterval(() => {
-        const iframe = document.querySelector("iframe");
-        if (iframe) {
-            const coords = extractCoordinatesFromURL(iframe.src);
-            if (coords && (coords.lat !== latestCoords.lat || coords.long !== latestCoords.long)) {
-                latestCoords = coords;
-                reverseGeocode(coords.lat, coords.long);
-            }
-        }
-    }, 1000);
 })();
